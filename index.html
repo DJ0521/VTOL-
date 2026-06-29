@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>VTOL UAV Simulator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{--bg:#06080f;--bg2:#0a0e1a;--bg3:#0d1220;--border:#162035;--accent:#3a8fff;--accent2:#00e0a8;--warn:#ffaa20;--danger:#ff4040;--text:#b0c8e8;--text2:#5a7a9a;--text3:#2a4a6a;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Courier New',monospace;}
+.hdr{position:fixed;top:0;left:0;right:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:10px 14px;height:52px;}
+.hdr h1{font-size:11px;letter-spacing:3px;color:var(--accent);}
+.hdr p{font-size:8px;color:var(--text3);letter-spacing:1px;margin-top:2px;}
+.score-num{font-size:22px;font-weight:bold;color:var(--accent);line-height:1;text-align:right;}
+.score-lbl{font-size:7px;color:var(--text3);letter-spacing:2px;text-align:right;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);display:inline-block;margin-right:4px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.tabnav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--bg2);border-top:1px solid var(--border);display:flex;height:56px;}
+.tnav{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;border:none;background:none;color:var(--text3);font-family:'Courier New',monospace;font-size:7px;letter-spacing:1px;transition:color .2s;padding:4px 0;}
+.tnav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.5;}
+.tnav.active{color:var(--accent);}
+.pages{position:fixed;top:52px;bottom:56px;left:0;right:0;overflow:hidden;}
+.page{position:absolute;inset:0;overflow-y:auto;display:none;padding:12px;}
+.page.active{display:block;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:var(--border);}
+.alert{border-radius:4px;padding:8px 10px;font-size:10px;margin-bottom:10px;display:none;}
+.alert.show{display:block;}
+.alert-bad{background:rgba(255,64,64,.08);border:1px solid rgba(255,64,64,.25);color:var(--danger);}
+.alert-warn{background:rgba(255,170,32,.08);border:1px solid rgba(255,170,32,.25);color:var(--warn);}
+.sec{font-size:8px;color:var(--text3);letter-spacing:2px;margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--border);}
+.sec:first-child{border-top:none;margin-top:0;padding-top:0;}
+.sg{margin-bottom:14px;}
+.sl{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:6px;}
+.sl span{color:var(--accent2);font-weight:bold;}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 0 4px rgba(58,143,255,.12);}
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;}
+.card-title{font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:10px;text-transform:uppercase;}
+.rrow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);}
+.rrow:last-child{border-bottom:none;padding-bottom:0;}
+.rkey{font-size:11px;color:var(--text2);}
+.rval{font-size:12px;font-weight:bold;}
+.ok{color:var(--accent2);}.warn{color:var(--warn);}.bad{color:var(--danger);}
+.fbar-wrap{margin-bottom:10px;}
+.fbar-lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:3px;}
+.fbar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.fbar-fill{height:100%;border-radius:3px;transition:width .4s,background .4s;}
+.crit{font-size:8px;color:var(--text3);margin-top:3px;line-height:1.5;}
+.hbtn{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-family:'Courier New',monospace;font-size:9px;padding:6px 2px;cursor:pointer;text-align:center;line-height:1.4;transition:all .2s;}
+.hbtn.active{background:rgba(58,143,255,0.15);border-color:var(--accent);color:var(--accent);}
+.btnrow{display:flex;gap:6px;margin-top:4px;}
+.infobox{border-radius:5px;padding:8px 10px;font-size:9px;margin-bottom:10px;line-height:1.6;}
+.infobox-green{background:rgba(0,224,168,0.06);border:1px solid rgba(0,224,168,0.2);color:#5a9a80;}
+.infobox-yellow{background:rgba(255,170,32,0.06);border:1px solid rgba(255,170,32,0.2);color:#8a7040;}
+.infobox-blue{background:rgba(58,143,255,0.06);border:1px solid rgba(58,143,255,0.2);color:#5a7aaa;}
+.sumbox{background:rgba(58,143,255,0.06);border:1px solid rgba(58,143,255,0.15);border-radius:4px;padding:7px 10px;font-size:9px;color:var(--text2);line-height:1.8;}
+.sumrow{display:flex;justify-content:space-between;}
+.bat-ref{position:relative;height:32px;margin:8px 0 4px;}
+.bat-ref-item{position:absolute;transform:translateX(-50%);text-align:center;}
+.bat-ref-dot{width:8px;height:8px;border-radius:50%;margin:0 auto 2px;}
+.bat-ref-lbl{font-size:7px;color:var(--text3);line-height:1.3;white-space:nowrap;}
+.bat-desc{font-size:9px;color:var(--text2);background:rgba(58,143,255,0.05);border:1px solid var(--border);border-radius:4px;padding:7px 9px;margin-top:6px;line-height:1.7;}
+.wlegend{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px;}
+.witem{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text2);}
+.wdot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.view-grid{display:grid;grid-template-rows:auto auto;gap:8px;}
+.view-top{width:100%;background:var(--bg);border-radius:8px;border:1px solid var(--border);overflow:hidden;}
+.view-bot{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.view-box{background:var(--bg);border-radius:8px;border:1px solid var(--border);overflow:hidden;}
+.view-lbl{font-size:8px;color:var(--accent);letter-spacing:2px;padding:7px 0 0;text-align:center;}
+canvas{display:block;}
+.vtol-time-box{background:rgba(58,143,255,0.07);border:1px solid rgba(58,143,255,0.18);border-radius:5px;padding:9px 10px;margin-bottom:10px;}
+.vtol-time-title{font-size:8px;color:var(--text3);letter-spacing:1px;margin-bottom:6px;}
+.vtol-time-row{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:3px;}
+.vtol-time-total{display:flex;justify-content:space-between;font-size:12px;font-weight:bold;margin-top:5px;padding-top:5px;border-top:1px solid var(--border);}
+.sol-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;}
+.fi{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.fi:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.fi-name{font-size:11px;color:var(--accent2);margin-bottom:5px;font-weight:bold;}
+.fi-eq{background:var(--bg);border-radius:4px;padding:9px 10px;font-size:10px;color:#6ab0ff;margin-bottom:6px;line-height:1.8;border-left:2px solid var(--accent);}
+.fi-mean{font-size:10px;color:var(--text2);line-height:1.7;margin-bottom:5px;background:rgba(58,143,255,0.04);border-radius:3px;padding:6px 8px;}
+.fi-val{font-size:10px;color:var(--warn);margin-top:4px;padding:4px 8px;background:rgba(255,170,32,0.06);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div><h1><span class="dot"></span>VTOL UAV SIM</h1><p>LIFT+CRUISE · 300KG · COAXIAL</p></div>
+  <div><div class="score-num" id="scoreNum">--</div><div class="score-lbl">FEASIBILITY</div></div>
+</div>
+<div class="pages">
+
+<!-- 파라미터 -->
+<div class="page active" id="pg-param">
+  <div id="alertDiv" class="alert alert-bad"></div>
+  <div id="warnDiv" class="alert alert-warn"></div>
+
+  <div class="sec">// 기본 요구도</div>
+  <div class="sg"><div class="sl">MTOW <span id="v_mtow">300</span> kg</div><input type="range" id="mtow" min="150" max="500" value="300" step="10"></div>
+  <div class="sg"><div class="sl">순항속도 CAS <span id="v_speed">160</span> km/h</div><input type="range" id="speed" min="80" max="250" value="160" step="5"></div>
+  <div class="sg"><div class="sl">운용고도 <span id="v_alt">3000</span> m</div><input type="range" id="alt" min="500" max="6000" value="3000" step="100"></div>
+  <div class="sg"><div class="sl">체공시간 <span id="v_endur">5.0</span> h</div><input type="range" id="endur" min="1" max="12" value="5" step="0.5"></div>
+  <div class="sg"><div class="sl">작전반경 <span id="v_range">80</span> km</div><input type="range" id="range" min="20" max="300" value="80" step="5"></div>
+
+  <div class="sec">// VTOL 설계</div>
+  <div class="sg">
+    <div class="sl" style="margin-bottom:8px;">리프트 로터 구성 <span id="v_rotorConfig">4암×동축2=8모터</span></div>
+    <div style="font-size:9px;color:var(--text3);margin-bottom:5px;">암(Arm) 수</div>
+    <div class="btnrow" style="margin-bottom:8px;">
+      <button class="hbtn arm-btn" onclick="setArm(3,this)">트라이<br><span style="font-size:8px;">3암</span></button>
+      <button class="hbtn arm-btn active" onclick="setArm(4,this)">쿼드<br><span style="font-size:8px;">4암</span></button>
+      <button class="hbtn arm-btn" onclick="setArm(6,this)">헥사<br><span style="font-size:8px;">6암</span></button>
+      <button class="hbtn arm-btn" onclick="setArm(8,this)">옥토<br><span style="font-size:8px;">8암</span></button>
+    </div>
+    <div style="font-size:9px;color:var(--text3);margin-bottom:5px;">암당 프로펠러</div>
+    <div class="btnrow" style="margin-bottom:8px;">
+      <button class="hbtn prop-btn" onclick="setProp(1,this)">싱글<br><span style="font-size:8px;">1개</span></button>
+      <button class="hbtn prop-btn active" onclick="setProp(2,this)">동축반전<br><span style="font-size:8px;">2개</span></button>
+    </div>
+    <div class="sumbox">
+      <div class="sumrow"><span>암 수</span><span id="sum_arms" style="color:var(--accent2);">4개</span></div>
+      <div class="sumrow"><span>암당 모터</span><span id="sum_mperarm" style="color:var(--accent2);">2개(동축반전)</span></div>
+      <div class="sumrow"><span>총 모터 수</span><span id="sum_motors" style="color:var(--accent2);">8개</span></div>
+      <div class="sumrow"><span>유효 디스크</span><span id="sum_disks" style="color:var(--accent2);">4개</span></div>
+    </div>
+  </div>
+  <div class="sg"><div class="sl">1회 호버링 시간 <span id="v_hover">5.0</span> 분</div><input type="range" id="hover" min="1" max="15" value="5" step="0.5"></div>
+  <div class="sg">
+    <div class="sl">이착륙 호버 횟수 <span id="v_hoverCount" style="color:var(--accent2);font-weight:bold;">이착륙 2회</span></div>
+    <div class="btnrow">
+      <button class="hbtn hc-btn" onclick="setHC(1,this)">이륙만<br><span style="font-size:8px;">1회</span></button>
+      <button class="hbtn hc-btn active" onclick="setHC(2,this)">이착륙<br><span style="font-size:8px;">2회</span></button>
+      <button class="hbtn hc-btn" onclick="setHC(3,this)">이착륙+<br><span style="font-size:8px;">비상=3회</span></button>
+      <button class="hbtn hc-btn" onclick="setHC(4,this)">왕복<br><span style="font-size:8px;">4회</span></button>
+    </div>
+  </div>
+  <div class="sg"><div class="sl">로터 반경 <span id="v_rrotor">0.70</span> m</div><input type="range" id="rrotor" min="0.4" max="1.2" value="0.70" step="0.05"></div>
+  <div class="sg"><div class="sl">Figure of Merit <span id="v_fm">0.60</span></div><input type="range" id="fm" min="0.45" max="0.75" value="0.60" step="0.01"></div>
+  <div class="sg"><div class="sl">배터리 팩수 <span id="v_npacks">4</span> 팩</div><input type="range" id="npacks" min="1" max="6" value="4" step="1"></div>
+  <div class="sg">
+    <div class="sl">배터리 밀도 <span id="v_batden">165</span> Wh/kg</div>
+    <input type="range" id="batden" min="100" max="320" value="165" step="5">
+    <div class="bat-ref">
+      <div class="bat-ref-item" style="left:0%"><div class="bat-ref-dot" style="background:#ff4040"></div><div class="bat-ref-lbl">LFP<br>130</div></div>
+      <div class="bat-ref-item" style="left:30%"><div class="bat-ref-dot" style="background:#ffaa20"></div><div class="bat-ref-lbl">LiPo<br>165</div></div>
+      <div class="bat-ref-item" style="left:55%"><div class="bat-ref-dot" style="background:#00e0a8"></div><div class="bat-ref-lbl">NMC<br>200</div></div>
+      <div class="bat-ref-item" style="left:78%"><div class="bat-ref-dot" style="background:#3a8fff"></div><div class="bat-ref-lbl">반고체<br>260</div></div>
+      <div class="bat-ref-item" style="left:100%"><div class="bat-ref-dot" style="background:#a040ff"></div><div class="bat-ref-lbl">고체<br>320</div></div>
+    </div>
+    <div class="bat-desc" id="batDescBox">--</div>
+  </div>
+
+  <div class="sec">// 날개 설계</div>
+  <div class="sg"><div class="sl">종횡비 AR <span id="v_ar">6.0</span></div><input type="range" id="ar" min="4" max="14" value="6" step="0.5"></div>
+  <div class="sg"><div class="sl">날개하중 <span id="v_wl">45</span> kg/m²</div><input type="range" id="wl" min="20" max="80" value="45" step="1"></div>
+  <div class="sg"><div class="sl">L/D 비 <span id="v_ld">12.0</span></div><input type="range" id="ld" min="6" max="20" value="12" step="0.5"></div>
+
+  <div class="sec">// 엔진 / 연료</div>
+  <div class="sg"><div class="sl">엔진출력 <span id="v_eng">35</span> kW</div><input type="range" id="eng" min="10" max="100" value="35" step="1"></div>
+  <div class="sg"><div class="sl">BSFC <span id="v_bsfc">0.35</span> kg/kWh</div><input type="range" id="bsfc" min="0.25" max="0.55" value="0.35" step="0.01"></div>
+  <div class="sg"><div class="sl">프로펠러 효율 <span id="v_peff">0.82</span></div><input type="range" id="peff" min="0.60" max="0.92" value="0.82" step="0.01"></div>
+
+  <div class="sec">// 페이로드</div>
+  <div class="sg"><div class="sl">임무장비 중량 <span id="v_payload">25</span> kg</div><input type="range" id="payload" min="5" max="80" value="25" step="1"></div>
+
+  <div class="sec">// 전환 구간 (Transition)</div>
+  <div class="infobox infobox-green">⚡ 호버→순항 전환 시 배터리+엔진 동시 사용. 배터리 용량에 추가 반영.</div>
+  <div class="sg"><div class="sl">전환 시간 <span id="v_trans">45</span> 초</div><input type="range" id="trans" min="10" max="120" value="45" step="5"></div>
+  <div class="sg"><div class="sl">전환 중 리프트 잔존율 <span id="v_transLift">0.50</span></div><input type="range" id="transLift" min="0.1" max="0.9" value="0.50" step="0.05"></div>
+  <div class="sg"><div class="sl">임무 중간 호버링 <span id="v_midHover">0</span> 회</div><input type="range" id="midHover" min="0" max="10" value="0" step="1"></div>
+  <div class="infobox infobox-yellow">💡 중간 호버링 많을수록 배터리 부담 ↑. 발전기 없으면 급격히 증가.</div>
+
+  <div class="sec">// 발전기 (선택)</div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:var(--text2);">
+      <input type="checkbox" id="useGen" onchange="toggleGen()" style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent);">
+      발전기 사용 (엔진→배터리 충전)
+    </label>
+  </div>
+  <div id="genOptions" style="display:none;">
+    <div class="infobox infobox-blue">🔋 순항 중 엔진 출력 일부로 배터리 충전. 배터리 중량 절감 가능.</div>
+    <div class="sg"><div class="sl">발전기 출력 <span id="v_genPow">5</span> kW</div><input type="range" id="genPow" min="1" max="30" value="5" step="1"></div>
+    <div class="sg"><div class="sl">발전기 효율 <span id="v_genEff">0.85</span></div><input type="range" id="genEff" min="0.70" max="0.95" value="0.85" step="0.01"></div>
+    <div class="sg"><div class="sl">발전기 중량 <span id="v_genWt">4</span> kg</div><input type="range" id="genWt" min="1" max="15" value="4" step="0.5"></div>
+  </div>
+</div>
+
+<!-- 3면도 -->
+<div class="page" id="pg-view">
+  <div class="view-grid">
+    <div class="view-top"><div class="view-lbl">▲ TOP VIEW</div><canvas id="cvTop"></canvas></div>
+    <div class="view-bot">
+      <div class="view-box"><div class="view-lbl">◀ SIDE</div><canvas id="cvSide"></canvas></div>
+      <div class="view-box"><div class="view-lbl">● FRONT</div><canvas id="cvFront"></canvas></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:10px;">
+    <div class="card-title">// 외형 제원</div>
+    <div class="rrow"><span class="rkey">전폭</span><span class="rval ok" id="rv_span">--</span></div>
+    <div class="rrow"><span class="rkey">전장</span><span class="rval ok" id="rv_len">--</span></div>
+    <div class="rrow"><span class="rkey">전고</span><span class="rval ok" id="rv_height">--</span></div>
+    <div class="rrow"><span class="rkey">날개 코드</span><span class="rval ok" id="rv_chord">--</span></div>
+    <div class="rrow"><span class="rkey">날개 면적</span><span class="rval ok" id="rv_area">--</span></div>
+  </div>
+</div>
+
+<!-- 결과 -->
+<div class="page" id="pg-result">
+  <div class="card">
+    <div class="card-title">// 설계 실현가능성</div>
+    <div class="fbar-wrap"><div class="fbar-lbl"><span>중량 여유</span><span id="f_weight">--</span></div><div class="fbar"><div class="fbar-fill" id="fb_weight"></div></div><div class="crit" id="crit_weight">기준: 구조여유 &gt; 10kg (MTOW×28% 최소구조)</div></div>
+    <div class="fbar-wrap"><div class="fbar-lbl"><span>엔진출력 여유</span><span id="f_power">--</span></div><div class="fbar"><div class="fbar-fill" id="fb_power"></div></div><div class="crit" id="crit_power">기준: 순항출력 대비 20% 이상 여유 권장</div></div>
+    <div class="fbar-wrap"><div class="fbar-lbl"><span>배터리 충분도</span><span id="f_bat">--</span></div><div class="fbar"><div class="fbar-fill" id="fb_bat"></div></div><div class="crit" id="crit_bat">기준: MTOW×22% 이내</div></div>
+    <div class="fbar-wrap" style="margin-bottom:0"><div class="fbar-lbl"><span>임무 달성도</span><span id="f_mission">--</span></div><div class="fbar"><div class="fbar-fill" id="fb_mission"></div></div><div class="crit">기준: 체공 5h + 반경 80km + 출력/구조 여유</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">// 수직이착륙 (VTOL)</div>
+    <div class="rrow"><span class="rkey">로터 구성</span><span class="rval ok" id="r_rotorConfig">--</span></div>
+    <div class="rrow"><span class="rkey">유효 디스크</span><span class="rval ok" id="r_effDisks">--</span></div>
+    <div class="rrow"><span class="rkey">총 디스크 면적</span><span class="rval ok" id="r_diskArea">--</span></div>
+    <div class="rrow"><span class="rkey">디스크 하중</span><span class="rval" id="r_disk">--</span></div>
+    <div class="rrow"><span class="rkey">호버링 전력</span><span class="rval" id="r_hpow">--</span></div>
+    <div class="rrow"><span class="rkey">호버링 에너지</span><span class="rval" id="r_benergy">--</span></div>
+    <div class="rrow"><span class="rkey">모터+ESC 중량</span><span class="rval" id="r_motorWt">--</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">// 전환 구간 + 중간호버 ⚡</div>
+    <div class="vtol-time-box">
+      <div class="vtol-time-title">⏱ 총 VTOL 배터리 사용시간</div>
+      <div class="vtol-time-row"><span>순수 호버링</span><span id="r_totalHoverTime" style="color:var(--accent2);">--</span></div>
+      <div class="vtol-time-row"><span>+ 전환 구간</span><span id="r_totalTransTime" style="color:var(--warn);">--</span></div>
+      <div class="vtol-time-row"><span>+ 중간 호버링</span><span id="r_totalMidTime" style="color:var(--warn);">--</span></div>
+      <div class="vtol-time-total"><span style="color:var(--text);">= 총 배터리 사용</span><span id="r_totalVtolTime" style="color:var(--accent);">--</span></div>
+    </div>
+    <div class="rrow"><span class="rkey">이착륙 호버 에너지</span><span class="rval ok" id="r_hoverE">--</span></div>
+    <div class="rrow"><span class="rkey">전환 에너지</span><span class="rval warn" id="r_transAdd">--</span></div>
+    <div class="rrow"><span class="rkey">중간 호버 에너지</span><span class="rval" id="r_midHoverE">--</span></div>
+    <div style="margin:6px 0;height:1px;background:var(--border);"></div>
+    <div class="rrow"><span class="rkey">총 필요 (발전기 전)</span><span class="rval" id="r_batNeeded">--</span></div>
+    <div class="rrow"><span class="rkey">발전기 절감</span><span class="rval" id="r_genSaved">--</span></div>
+    <div style="margin:6px 0;height:1px;background:var(--border);"></div>
+    <div class="rrow"><span class="rkey">최종 배터리 용량</span><span class="rval" id="r_batTotal">--</span></div>
+    <div class="rrow"><span class="rkey">배터리 중량</span><span class="rval" id="r_batFinal">--</span></div>
+    <div class="rrow"><span class="rkey">팩당 중량</span><span class="rval" id="r_bpack">--</span></div>
+  </div>
+  <div class="card" id="genResultCard" style="display:none;">
+    <div class="card-title">// 발전기 효과 🔋</div>
+    <div class="rrow"><span class="rkey">충전 전력</span><span class="rval ok" id="r_genCharge">--</span></div>
+    <div class="rrow"><span class="rkey">순항 중 충전량</span><span class="rval ok" id="r_genEnergy">--</span></div>
+    <div class="rrow"><span class="rkey">배터리 절감</span><span class="rval ok" id="r_batSave">--</span></div>
+    <div class="rrow"><span class="rkey">발전기 중량</span><span class="rval warn" id="r_genWtR">--</span></div>
+    <div class="rrow"><span class="rkey">순 중량 효과</span><span class="rval" id="r_netWt">--</span></div>
+    <div class="rrow"><span class="rkey">엔진 추가 부하</span><span class="rval" id="r_engExtra">--</span></div>
+  </div>
+  <div class="sol-card">
+    <div class="card-title">// 💡 배터리 문제 해결 방법</div>
+    <div id="batSolContent" style="font-size:10px;color:var(--text2);line-height:1.9;"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">// 날개 / 공력</div>
+    <div class="rrow"><span class="rkey">날개 면적</span><span class="rval" id="r_warea">--</span></div>
+    <div class="rrow"><span class="rkey">전폭</span><span class="rval" id="r_wspan">--</span></div>
+    <div class="rrow"><span class="rkey">순항 CL</span><span class="rval" id="r_cl">--</span></div>
+    <div class="rrow"><span class="rkey">순항 항력</span><span class="rval" id="r_drag">--</span></div>
+    <div class="rrow"><span class="rkey">순항 필요출력</span><span class="rval" id="r_cpow">--</span></div>
+    <div class="rrow"><span class="rkey">엔진출력 여유</span><span class="rval" id="r_emargin">--</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">// 엔진 / 연료</div>
+    <div class="rrow"><span class="rkey">연료 소모율</span><span class="rval" id="r_fburn">--</span></div>
+    <div class="rrow"><span class="rkey">연료 중량</span><span class="rval" id="r_fwt">--</span></div>
+    <div class="rrow"><span class="rkey">연료 부피</span><span class="rval" id="r_fvol">--</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">// 중량 배분</div>
+    <div class="rrow"><span class="rkey">구조 가용</span><span class="rval" id="r_savail">--</span></div>
+    <div class="rrow"><span class="rkey">구조 최소 필요</span><span class="rval" id="r_smin">--</span></div>
+    <div class="rrow"><span class="rkey">구조 여유</span><span class="rval" id="r_smargin">--</span></div>
+    <canvas id="pieCanvas" height="120" style="margin-top:10px;width:100%;display:block;"></canvas>
+    <div class="wlegend" id="wlegend"></div>
+  </div>
+</div>
+
+<!-- 수식 -->
+<div class="page" id="pg-formula">
+  <div class="card">
+    <div class="card-title">① 호버링 전력</div>
+    <div class="fi"><div class="fi-name">필요 추력 T [N]</div><div class="fi-eq">T = MTOW × 9.81 × 1.2</div><div class="fi-mean">🔹 여유계수 1.2 = 돌풍/기동 대비 20% 추가 추력</div><div class="fi-val" id="fv_T">▶ --</div></div>
+    <div class="fi"><div class="fi-name">유효 디스크 면적 A [m²]</div><div class="fi-eq">A = 유효디스크수 × π × r²</div><div class="fi-mean">🔹 동축반전은 상하 로터가 같은 공간 공유 → 유효 디스크 = 암 수. 면적 클수록 효율 ↑</div><div class="fi-val" id="fv_A">▶ --</div></div>
+    <div class="fi"><div class="fi-name">호버링 전력 P [kW]</div><div class="fi-eq">P = T^1.5 / (√(2·ρ·A) × FM)</div><div class="fi-mean">🔹 FM = Figure of Merit (로터 효율). 동축반전은 FM×0.9 적용 (간섭손실). 무거울수록 T^1.5로 급격히 증가</div><div class="fi-val" id="fv_P">▶ --</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">② 배터리 계산</div>
+    <div class="fi"><div class="fi-name">배터리 에너지 [kWh]</div><div class="fi-eq">E = P × t / DOD / η_ESC<br>DOD=0.80, η_ESC=0.95</div><div class="fi-mean">🔹 DOD 80% = 배터리 수명 보호. ESC 5% 손실. 전환구간·중간호버 에너지 별도 추가</div><div class="fi-val" id="fv_E">▶ --</div></div>
+    <div class="fi"><div class="fi-name">배터리 중량 [kg]</div><div class="fi-eq">W = E(Wh) / 에너지밀도(Wh/kg)</div><div class="fi-mean">🔹 LiPo 팩 기준 165 Wh/kg (셀 200~220에서 BMS+구조 오버헤드 적용). NMC=200, 반고체=260</div><div class="fi-val" id="fv_Wbat">▶ --</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">③ 고도 보정</div>
+    <div class="fi"><div class="fi-name">공기밀도 ρ [kg/m³]</div><div class="fi-eq">ρ = 1.225 × (1-2.2558e-5×h)^4.256</div><div class="fi-mean">🔹 고도 3km → ρ ≈ 0.909 (해수면의 74%). 고도 높을수록 날개가 더 열심히 일해야 함</div><div class="fi-val" id="fv_rho">▶ --</div></div>
+    <div class="fi"><div class="fi-name">TAS [km/h]</div><div class="fi-eq">TAS = CAS / √(ρ/ρ₀)</div><div class="fi-mean">🔹 CAS = 계기속도, TAS = 실제 공기 대비 속도. 추력/항력 계산에는 TAS 사용</div><div class="fi-val" id="fv_tas">▶ --</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">④ 날개 설계</div>
+    <div class="fi"><div class="fi-name">날개 면적 S [m²]</div><div class="fi-eq">S = MTOW / 날개하중</div><div class="fi-mean">🔹 날개하중 = 단위 면적당 무게. 낮으면 저속 안정, 높으면 날개 작아짐. 중형 ISR 적정: 35~55 kg/m²</div><div class="fi-val" id="fv_S">▶ --</div></div>
+    <div class="fi"><div class="fi-name">전폭 b [m]</div><div class="fi-eq">b = √(AR × S)</div><div class="fi-mean">🔹 AR(종횡비) 높을수록 순항 효율↑ 구조 강성↓. 중형 UAV 적정: AR 6~9</div><div class="fi-val" id="fv_b">▶ --</div></div>
+    <div class="fi"><div class="fi-name">순항 CL</div><div class="fi-eq">CL = (MTOW×g) / (½·ρ·TAS²·S)</div><div class="fi-mean">🔹 0.4~0.8 = 정상 ✅ / 1.2↑ = 실속 위험 ❌ / 0.3↓ = 날개 과대</div><div class="fi-val" id="fv_CL">▶ --</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">⑤ 순항 추진</div>
+    <div class="fi"><div class="fi-name">순항 항력 D [N]</div><div class="fi-eq">D = (MTOW×g) / L/D비</div><div class="fi-mean">🔹 L/D비 = 양항비. 높을수록 효율적. 중형 UAV 적정: 10~15</div><div class="fi-val" id="fv_D">▶ --</div></div>
+    <div class="fi"><div class="fi-name">순항 필요출력 [kW]</div><div class="fi-eq">P = D × TAS / η_prop</div><div class="fi-mean">🔹 이 값이 엔진 출력보다 크면 설계 불가. 발전기 추가 시 발전기 출력만큼 엔진 부하 증가</div><div class="fi-val" id="fv_Pc">▶ --</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">⑥ 연료 / 중량 배분</div>
+    <div class="fi"><div class="fi-name">연료 소모율 [kg/h]</div><div class="fi-eq">ṁ = P_엔진부하 × BSFC</div><div class="fi-mean">🔹 BSFC = 제동연료소비율. 가솔린 항공엔진 0.30~0.45. 발전기 켜면 엔진 부하 = 순항출력 + 발전기출력</div><div class="fi-val" id="fv_fb">▶ --</div></div>
+    <div class="fi"><div class="fi-name">구조 여유</div><div class="fi-eq">여유 = MTOW - 모든계통중량 - MTOW×0.28</div><div class="fi-mean">🔹 MTOW×28% = 탄소섬유 복합재 기준 최소 구조 중량. 여유 &gt; 10kg ✅ / 0~10 ⚠️ / 음수 ❌</div><div class="fi-val" id="fv_sm">▶ --</div></div>
+  </div>
+</div>
+
+</div><!-- pages end -->
+
+<div class="tabnav">
+  <button class="tnav active" onclick="switchTab('param',this)"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>파라미터</button>
+  <button class="tnav" onclick="switchTab('view',this)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>3면도</button>
+  <button class="tnav" onclick="switchTab('result',this)"><svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>결과</button>
+  <button class="tnav" onclick="switchTab('formula',this)"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h12"/><circle cx="19" cy="17" r="2"/></svg>수식</button>
+</div>
+
+<script>
+// ── 전역 상태 ──
+var nArms=4, nPropPerArm=2, hoverCount=2;
+var C={};
+var DEC={fm:2,bsfc:2,peff:2,rrotor:2,ar:1,ld:1,endur:1,transLift:2,genEff:2,genWt:1,hover:1};
+
+// ── 헬퍼 ──
+function gv(id){var el=document.getElementById(id);return el?parseFloat(el.value):0;}
+function gb(id){var el=document.getElementById(id);return el?el.checked:false;}
+function sv(id,val){var el=document.getElementById(id);if(el)el.textContent=val;}
+function sr(id,val,state){var el=document.getElementById(id);if(!el)return;el.textContent=val;el.className='rval '+(state==='ok'?'ok':state==='warn'?'warn':'bad');}
+function sfb(id,val,mn,mx){
+  var pct=Math.max(0,Math.min(100,(val-mn)/(mx-mn)*100));
+  var fill=document.getElementById('fb_'+id),lbl=document.getElementById('f_'+id);
+  if(!fill||!lbl)return;
+  fill.style.width=pct+'%';
+  var col=pct>60?'#00e0a8':pct>30?'#ffaa20':'#ff4040';
+  fill.style.background=col;lbl.textContent=pct.toFixed(0)+'%';lbl.style.color=col;
+}
+function sfv(id,txt){var el=document.getElementById(id);if(el)el.textContent='▶ '+txt;}
+
+// ── 버튼 핸들러 ──
+function setArm(n,btn){
+  nArms=n;
+  document.querySelectorAll('.arm-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  updateRotorSummary();
+  calculate();
+}
+function setProp(n,btn){
+  nPropPerArm=n;
+  document.querySelectorAll('.prop-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  updateRotorSummary();
+  calculate();
+}
+function setHC(n,btn){
+  hoverCount=n;
+  document.querySelectorAll('.hc-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  var labels=['','이륙만 1회','이착륙 2회','이착륙+비상 3회','왕복 4회'];
+  sv('v_hoverCount',labels[n]);
+  calculate();
+}
+function toggleGen(){
+  var on=gb('useGen');
+  var opts=document.getElementById('genOptions');
+  var card=document.getElementById('genResultCard');
+  if(opts)opts.style.display=on?'block':'none';
+  if(card)card.style.display=on?'block':'none';
+  calculate();
+}
+function updateRotorSummary(){
+  var totalMotors=nArms*nPropPerArm;
+  var effDisks=nPropPerArm===2?nArms:totalMotors;
+  sv('sum_arms',nArms+'개');
+  sv('sum_mperarm',nPropPerArm===2?'2개(동축반전)':'1개(싱글)');
+  sv('sum_motors',totalMotors+'개');
+  sv('sum_disks',effDisks+'개');
+  sv('v_rotorConfig',nArms+'암×'+(nPropPerArm===2?'동축2':'싱글1')+'='+totalMotors+'모터');
+}
+
+// ── 슬라이더 이벤트 ──
+['mtow','speed','alt','endur','range','hover','rrotor','fm','npacks','batden','ar','wl','ld','eng','bsfc','peff','payload','trans','transLift','midHover','genPow','genEff','genWt'].forEach(function(id){
+  var el=document.getElementById(id);
+  if(!el)return;
+  el.addEventListener('input',function(){
+    var sp=document.getElementById('v_'+id);
+    if(sp)sp.textContent=parseFloat(el.value).toFixed(DEC[id]||0);
+    calculate();
+  });
+});
+
+// ── 배터리 설명 ──
+function updateBatDesc(den){
+  var el=document.getElementById('batDescBox');if(!el)return;
+  var name,txt,color;
+  if(den<=130){color='#ff4040';name='LFP (리튬인산철)';txt='가장 안전·장수명이나 무거움. 군수·장기운용 적합. 팩 110~140 Wh/kg.';}
+  else if(den<=180){color='#ffaa20';name='LiPo — 현재 UAV 표준';txt='드론 업계 표준. 가볍고 고출력. 2024~2026 산업용 팩 실측 165~180 Wh/kg. 화재 주의.';}
+  else if(den<=230){color='#00e0a8';name='NMC (니켈망간코발트)';txt='LiPo보다 20~30% 가벼움. 팩 180~250 Wh/kg. 열관리 필수. 중형 UAV 채택 증가.';}
+  else if(den<=280){color='#3a8fff';name='반고체 리튬 — 차세대';txt='2025~2026 상용화 초입. 팩 260~300 Wh/kg. 안전성↑. 조달 리스크 있음.';}
+  else{color='#a040ff';name='전고체 — 미래기술';txt='셀 300~500 Wh/kg 가능하나 팩 적용시 감소. 군/항공 R&D 단계.';}
+  el.innerHTML='<span style="color:'+color+';font-weight:bold;">'+name+'</span><br>'+txt;
+}
+
+// ── 메인 계산 ──
+function calculate(){
+  var g=9.81,rho0=1.225;
+  var mtow=gv('mtow'),speed=gv('speed'),alt=gv('alt'),endur=gv('endur'),range_=gv('range');
+  var hover=gv('hover'),rrotor=gv('rrotor'),fm=gv('fm'),npacks=gv('npacks'),batden=gv('batden');
+  var ar=gv('ar'),wl=gv('wl'),ld=gv('ld'),eng=gv('eng'),bsfc=gv('bsfc'),peff=gv('peff'),payload=gv('payload');
+  var trans=gv('trans'),transLift=gv('transLift'),midHover=gv('midHover');
+  var useGen=gb('useGen'),genPow=gv('genPow'),genEff=gv('genEff'),genWtVal=gv('genWt');
+
+  var rho=rho0*Math.pow(1-2.2558e-5*alt,4.2559);
+  var sigma=rho/rho0;
+  var casSI=speed/3.6,tasSI=casSI/Math.sqrt(sigma),tasKmh=tasSI*3.6;
+
+  // VTOL
+  var totalMotors=nArms*nPropPerArm;
+  var effDisks=nPropPerArm===2?nArms:totalMotors;
+  var fmEff=nPropPerArm===2?fm*0.90:fm;
+  var T=mtow*g*1.2;
+  var A=effDisks*Math.PI*rrotor*rrotor;
+  var hpowKW=Math.pow(T,1.5)/(Math.sqrt(2*rho0*A)*fmEff)/1000;
+  var diskLoad=(mtow*g)/A;
+
+  // 에너지
+  var hoverE_once=hpowKW*(hover/60)/0.80/0.95;
+  var hoverE_total=hoverE_once*hoverCount;
+  var transAvgPow=hpowKW*transLift;
+  var transE_1=transAvgPow*(trans/3600)/0.80/0.95;
+  var transE_total=transE_1*hoverCount;
+  var midHoverE=hoverE_once*midHover;
+
+  // 발전기
+  var midHoverTime_h=(hover/60)*midHover;
+  var cruiseTime=Math.max(0,endur-(hover/60)*hoverCount-(trans/3600)*hoverCount-midHoverTime_h);
+  var genChargeE=0,batSaveWt=0,genExtraEng=0;
+  if(useGen){
+    genExtraEng=genPow;
+    var rawCharge=genPow*genEff*cruiseTime;
+    var minBatE=hoverE_once+transE_1;
+    var maxSavable=Math.max(0,hoverE_total+transE_total+midHoverE-minBatE);
+    genChargeE=Math.min(rawCharge,maxSavable);
+    batSaveWt=genChargeE*1000/batden;
+  }
+  var batTotalE=Math.max(hoverE_once+transE_1,hoverE_total+transE_total+midHoverE-genChargeE);
+  var batWt=batTotalE*1000/batden;
+  var batPack=batWt/npacks;
+
+  // 날개
+  var wArea=mtow/wl,wspan=Math.sqrt(ar*wArea),chord=wArea/wspan;
+  var CL=(mtow*g)/(0.5*rho*tasSI*tasSI*wArea);
+  var dragN=(mtow*g)/ld;
+  var cpowKW=(dragN*tasSI)/(peff*1000);
+  var totalEngPow=cpowKW+(useGen?genExtraEng:0);
+  var emargin=(eng-totalEngPow)/eng*100;
+
+  // 연료
+  var fburn=totalEngPow*bsfc;
+  var fwt=fburn*endur;
+  var fvol=fwt/0.72;
+
+  // 중량
+  var engWt=eng*0.7+5;
+  var motorWt=totalMotors*(hpowKW/totalMotors*0.15+1.2);
+  var escWt=totalMotors*0.8;
+  var avionics=15;
+  var addGenWt=useGen?genWtVal:0;
+  var fixed=batWt+fwt+engWt+motorWt+escWt+avionics+payload+addGenWt;
+  var sAvail=mtow-fixed,sMin=mtow*0.28,sMargin=sAvail-sMin;
+  var dimLen=wspan*0.60,dimH=0.8+(mtow/300)*0.3;
+
+  // 점수
+  var batLimit=mtow*0.22;
+  var score=100;var alerts=[],warns=[];
+  if(sMargin<0){score-=40;alerts.push('구조중량 부족 '+Math.abs(sMargin).toFixed(0)+'kg 초과');}
+  else if(sMargin<10){score-=20;warns.push('구조 여유 부족 '+sMargin.toFixed(0)+'kg');}
+  if(emargin<0){score-=30;alerts.push('엔진출력 부족 '+(-emargin).toFixed(0)+'% 초과');}
+  else if(emargin<20){score-=10;warns.push('출력 여유 부족 '+emargin.toFixed(0)+'%');}
+  if(batWt>batLimit*1.5){score-=30;alerts.push('배터리 과중 '+batWt.toFixed(0)+'kg (기준 '+batLimit.toFixed(0)+'kg의 150% 초과)');}
+  else if(batWt>batLimit){score-=15;warns.push('배터리 '+batWt.toFixed(0)+'kg — 기준('+batLimit.toFixed(0)+'kg) 초과');}
+  if(CL>1.4){score-=15;alerts.push('CL '+CL.toFixed(2)+' 실속위험');}
+  if(CL<0.2){score-=10;warns.push('CL '+CL.toFixed(2)+' 날개과대');}
+  score=Math.max(0,Math.min(100,score));
+
+  // C 저장
+  C={wspan:wspan,dimLen:dimLen,dimH:dimH,rrotor:rrotor,hpowKW:hpowKW,cpowKW:cpowKW,CL:CL,
+     nArms:nArms,nPropPerArm:nPropPerArm,totalMotors:totalMotors,effDisks:effDisks,
+     T:T,A:A,hoverE_once:hoverE_once,hoverE_total:hoverE_total,
+     transE_total:transE_total,midHoverE:midHoverE,batTotalE:batTotalE,
+     batWt:batWt,batPack:batPack,diskLoad:diskLoad,
+     rho:rho,sigma:sigma,tasSI:tasSI,tasKmh:tasKmh,
+     wArea:wArea,chord:chord,dragN:dragN,fburn:fburn,fwt:fwt,fvol:fvol,
+     emargin:emargin,motorWt:motorWt,escWt:escWt,fixed:fixed,
+     sAvail:sAvail,sMin:sMin,sMargin:sMargin,
+     mtow:mtow,eng:eng,batden:batden,endur:endur,hover:hover,range_:range_,
+     useGen:useGen,genChargeE:genChargeE,batSaveWt:batSaveWt,
+     genExtraEng:genExtraEng,totalEngPow:totalEngPow,
+     genPow:genPow,genEff:genEff,genWtVal:genWtVal,
+     hoverCount:hoverCount,trans:trans,transLift:transLift,midHover:midHover,
+     cruiseTime:cruiseTime,fmEff:fmEff,payload:payload,
+     engWt:engWt,avionics:avionics,addGenWt:addGenWt,batLimit:batLimit};
+
+  // UI 업데이트
+  var sc=document.getElementById('scoreNum');
+  sc.textContent=score+'%';
+  sc.style.color=score>=75?'#00e0a8':score>=50?'#ffaa20':'#ff4040';
+
+  var aDiv=document.getElementById('alertDiv');
+  if(aDiv){aDiv.className='alert alert-bad'+(alerts.length?' show':'');aDiv.textContent=alerts.join(' | ');}
+  var wDiv=document.getElementById('warnDiv');
+  if(wDiv){wDiv.className='alert alert-warn'+(warns.length?' show':'');wDiv.textContent=warns.join(' | ');}
+
+  // VTOL
+  sr('r_rotorConfig',nArms+'암×'+(nPropPerArm===2?'동축반전':'싱글')+'='+totalMotors+'모터','ok');
+  sr('r_effDisks',effDisks+'개','ok');
+  sr('r_diskArea',A.toFixed(2)+' m²','ok');
+  sr('r_disk',diskLoad.toFixed(0)+' N/m²',diskLoad<300?'ok':diskLoad<500?'warn':'bad');
+  sr('r_hpow',hpowKW.toFixed(1)+' kW'+(nPropPerArm===2?' (FM×0.9)':''),hpowKW<100?'ok':'warn');
+  var hcL=['','이륙1회','이착륙2회','이착륙+비상3회','왕복4회'];
+  sr('r_benergy',hoverE_total.toFixed(2)+' kWh ('+hcL[hoverCount]+', 1회='+hoverE_once.toFixed(2)+'kWh)','ok');
+  sr('r_motorWt',(motorWt+escWt).toFixed(1)+'kg (모터'+motorWt.toFixed(1)+'+ESC'+escWt.toFixed(1)+')','ok');
+
+  // 총 VTOL 시간
+  var hTotalMin=hover*hoverCount;
+  var tTotalMin=(trans/60)*hoverCount;
+  var mTotalMin=hover*midHover;
+  var totalMin=hTotalMin+tTotalMin+mTotalMin;
+  sv('r_totalHoverTime',hover+'분×'+hoverCount+'회='+hTotalMin.toFixed(1)+'분');
+  sv('r_totalTransTime',(trans/60).toFixed(1)+'분×'+hoverCount+'회='+tTotalMin.toFixed(1)+'분');
+  sv('r_totalMidTime',midHover>0?hover+'분×'+midHover+'회='+mTotalMin.toFixed(1)+'분':'없음');
+  sv('r_totalVtolTime',totalMin.toFixed(1)+'분 ('+totalMin.toFixed(0)+'분)');
+
+  // 에너지 흐름
+  sr('r_hoverE',hoverE_total.toFixed(2)+' kWh ('+hoverCount+'회)','ok');
+  sr('r_transAdd','+'+transE_total.toFixed(2)+' kWh ('+hoverCount+'회)','warn');
+  sr('r_midHoverE',midHover>0?'+'+midHoverE.toFixed(2)+' kWh ('+midHover+'회)':'없음 (0회)',midHover===0?'ok':useGen?'warn':'bad');
+  sr('r_batNeeded',(hoverE_total+transE_total+midHoverE).toFixed(2)+' kWh','ok');
+  sr('r_genSaved',useGen?'-'+genChargeE.toFixed(2)+' kWh':'발전기 없음',useGen?'ok':'warn');
+  sr('r_batTotal',batTotalE.toFixed(2)+' kWh',batTotalE<15?'ok':batTotalE<25?'warn':'bad');
+  sr('r_batFinal',batWt.toFixed(1)+' kg',batWt<batLimit?'ok':batWt<batLimit*1.5?'warn':'bad');
+  sr('r_bpack',batPack.toFixed(1)+' kg/팩',batPack<20?'ok':'warn');
+
+  // 발전기
+  if(useGen){
+    var rawCharge2=genPow*genEff*cruiseTime;
+    sr('r_genCharge',(genPow*genEff).toFixed(1)+' kW','ok');
+    sr('r_genEnergy',rawCharge2.toFixed(2)+' kWh (순항'+cruiseTime.toFixed(1)+'h)','ok');
+    sr('r_batSave',batSaveWt.toFixed(1)+' kg 절감','ok');
+    sr('r_genWtR','+'+genWtVal+' kg','warn');
+    var net=batSaveWt-genWtVal;
+    sr('r_netWt',(net>=0?'-':'+')+Math.abs(net).toFixed(1)+' kg',net>=0?'ok':'warn');
+    sr('r_engExtra','+'+genExtraEng+' kW → 총'+totalEngPow.toFixed(1)+'kW',emargin>0?'ok':'bad');
+  }
+
+  // 날개
+  sr('r_warea',wArea.toFixed(1)+' m²','ok');
+  sr('r_wspan',wspan.toFixed(2)+' m',wspan<7?'ok':'warn');
+  sr('r_cl',CL.toFixed(3),CL<0.9?'ok':CL<1.2?'warn':'bad');
+  sr('r_drag',dragN.toFixed(0)+' N','ok');
+  sr('r_cpow',totalEngPow.toFixed(1)+' kW',totalEngPow<eng?'ok':'bad');
+  sr('r_emargin',emargin.toFixed(1)+' %',emargin>30?'ok':emargin>10?'warn':'bad');
+  sr('r_fburn',fburn.toFixed(2)+' kg/h','ok');
+  sr('r_fwt',fwt.toFixed(1)+' kg',fwt<60?'ok':'warn');
+  sr('r_fvol',fvol.toFixed(1)+' L','ok');
+  sr('r_savail',sAvail.toFixed(1)+' kg',sAvail>sMin?'ok':'bad');
+  sr('r_smin',sMin.toFixed(1)+' kg','ok');
+  sr('r_smargin',sMargin.toFixed(1)+' kg',sMargin>10?'ok':sMargin>0?'warn':'bad');
+
+  sv('rv_span',wspan.toFixed(2)+' m');sv('rv_len',dimLen.toFixed(2)+' m');
+  sv('rv_height',dimH.toFixed(2)+' m');sv('rv_chord',chord.toFixed(3)+' m');sv('rv_area',wArea.toFixed(1)+' m²');
+
+  // 실현가능성 바
+  sfb('weight',sMargin,0,50);
+  sfb('power',emargin,0,60);
+  var batSuffPct=Math.min(100,Math.max(0,(batLimit-batWt)/batLimit*100));
+  var fbBat=document.getElementById('fb_bat'),lblBat=document.getElementById('f_bat');
+  if(fbBat&&lblBat){fbBat.style.width=batSuffPct+'%';var bc=batSuffPct>60?'#00e0a8':batSuffPct>30?'#ffaa20':'#ff4040';fbBat.style.background=bc;lblBat.textContent=batSuffPct.toFixed(0)+'%';lblBat.style.color=bc;}
+  sfb('mission',Math.min(100,(endur>=5?25:endur/5*25)+(range_>=80?25:range_/80*25)+(emargin>0?25:0)+(sMargin>0?25:0)),0,100);
+
+  // 기준 텍스트
+  sv('crit_weight','기준: 구조여유>10kg | 최소구조'+sMin.toFixed(0)+'kg(MTOW×28%) | 가용'+sAvail.toFixed(0)+'kg → 여유'+sMargin.toFixed(0)+'kg');
+  sv('crit_power','기준: 20%이상여유 | 필요'+totalEngPow.toFixed(1)+'kW/탑재'+eng+'kW → 여유'+emargin.toFixed(0)+'%');
+  sv('crit_bat','기준: MTOW×22%='+batLimit.toFixed(0)+'kg이내 | 현재'+batWt.toFixed(0)+'kg(팩당'+batPack.toFixed(0)+'kg)');
+
+  // 파이차트
+  drawPie({배터리:batWt,연료:fwt,엔진계:engWt+addGenWt,'모터/ESC':motorWt+escWt,항전:avionics,페이로드:payload,구조:Math.max(0,sAvail)});
+
+  // 배터리 해결 조언
+  var solEl=document.getElementById('batSolContent');
+  if(solEl){
+    var over=batWt-batLimit;
+    if(over>0){
+      var sols=[];
+      sols.push('① <b style="color:#00e0a8">호버링 시간 단축</b> — '+hover+'분→'+(Math.max(1,hover-1))+'분으로 약 '+((over*0.2)|0)+'kg 절감');
+      if(!useGen)sols.push('② <b style="color:#00e0a8">발전기 추가</b> — 5kW 발전기 ON 시 배터리 약 30~40kg 절감, 발전기 무게 4kg만 추가');
+      if(batden<200)sols.push('③ <b style="color:#00e0a8">배터리 밀도 향상</b> — NMC(200 Wh/kg) 적용 시 '+((batWt-batTotalE*1000/200)|0)+'kg 절감');
+      if(nArms<6)sols.push('④ <b style="color:#00e0a8">암 수 증가</b> — '+nArms+'암→6암 시 디스크 면적 50%↑ → 호버 전력 감소');
+      sols.push('⑤ <b style="color:#00e0a8">MTOW 상향</b> — '+mtow+'kg→'+Math.ceil((fixed+sMin+10)/10)*10+'kg으로 구조 여유 확보');
+      solEl.innerHTML='<span style="color:#ff4040;">⚠ 배터리 '+batWt.toFixed(0)+'kg — 기준('+batLimit.toFixed(0)+'kg) '+over.toFixed(0)+'kg 초과</span><br><br>'+sols.join('<br><br>');
+    }else{
+      solEl.innerHTML='<span style="color:#00e0a8;">✅ 배터리 '+batWt.toFixed(0)+'kg — 기준('+batLimit.toFixed(0)+'kg) 이내</span>';
+    }
+  }
+
+  // 수식 업데이트
+  sfv('fv_T','T='+mtow+'×9.81×1.2='+T.toFixed(0)+' N');
+  sfv('fv_A','A='+effDisks+'×π×'+rrotor.toFixed(2)+'²='+A.toFixed(3)+' m²');
+  sfv('fv_P','P='+T.toFixed(0)+'^1.5/(√(2×1.225×'+A.toFixed(3)+')×'+fmEff.toFixed(2)+')='+hpowKW.toFixed(1)+' kW');
+  sfv('fv_E','호버E='+hoverE_total.toFixed(2)+' + 전환E='+transE_total.toFixed(2)+' + 중간E='+midHoverE.toFixed(2)+' = '+batTotalE.toFixed(2)+' kWh');
+  sfv('fv_Wbat','W='+(batTotalE*1000).toFixed(0)+'/'+batden+'='+batWt.toFixed(1)+' kg (팩당'+batPack.toFixed(1)+'kg)');
+  sfv('fv_rho','ρ='+rho.toFixed(4)+' kg/m³ (해수면대비'+(sigma*100).toFixed(1)+'%)');
+  sfv('fv_tas','TAS='+speed+'/√'+sigma.toFixed(3)+'='+tasKmh.toFixed(1)+' km/h');
+  sfv('fv_S','S='+mtow+'/'+wl+'='+wArea.toFixed(2)+' m²');
+  sfv('fv_b','b=√('+ar+'×'+wArea.toFixed(2)+')='+wspan.toFixed(2)+' m (코드'+chord.toFixed(3)+'m)');
+  sfv('fv_CL','CL='+CL.toFixed(3)+' '+(CL<0.9?'✅':CL<1.2?'⚠️':'❌'));
+  sfv('fv_D','D=('+mtow+'×9.81)/'+ld+'='+dragN.toFixed(0)+' N');
+  sfv('fv_Pc','P='+dragN.toFixed(0)+'×'+tasSI.toFixed(1)+'/'+peff+'='+cpowKW.toFixed(1)+'kW'+(useGen?'+발전'+genExtraEng+'kW='+totalEngPow.toFixed(1)+'kW':'')+' '+(totalEngPow<eng?'✅':'❌'));
+  sfv('fv_fb','ṁ='+totalEngPow.toFixed(1)+'×'+bsfc+'='+fburn.toFixed(2)+' kg/h');
+  sfv('fv_sm','여유='+sAvail.toFixed(1)+'-'+sMin.toFixed(1)+'='+sMargin.toFixed(1)+'kg '+(sMargin>10?'✅':sMargin>0?'⚠️':'❌'));
+
+  updateBatDesc(batden);
+  if(document.getElementById('pg-view').classList.contains('active'))drawViews();
+}
+
+// ── 파이 차트 ──
+var COLORS=['#3a8fff','#ffaa20','#ff4040','#a040ff','#20c8e0','#00e0a8','#4a6a9a'];
+function drawPie(data){
+  var canvas=document.getElementById('pieCanvas');if(!canvas)return;
+  var dpr=window.devicePixelRatio||1,W=canvas.offsetWidth,H=120;
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  var ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  var total=Object.values(data).reduce(function(a,b){return a+b;},0);
+  var cx=H/2,cy=H/2,r=H/2-6,ang=-Math.PI/2;
+  Object.entries(data).forEach(function(kv,i){
+    var s=(kv[1]/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,ang,ang+s);
+    ctx.fillStyle=COLORS[i%7];ctx.fill();ctx.strokeStyle='#06080f';ctx.lineWidth=2;ctx.stroke();ang+=s;
+  });
+  var leg=document.getElementById('wlegend');
+  if(leg){leg.innerHTML='';Object.entries(data).forEach(function(kv,i){leg.innerHTML+='<div class="witem"><div class="wdot" style="background:'+COLORS[i%7]+'"></div>'+kv[0]+' '+kv[1].toFixed(0)+'kg</div>';});}
+}
+
+// ── 3면도 ──
+function drawViews(){if(!C.wspan)return;renderTop();renderSide();renderFront();}
+function setupCV(id){
+  var el=document.getElementById(id);if(!el)return null;
+  var dpr=window.devicePixelRatio||1,W=el.offsetWidth,H=el.offsetHeight;
+  if(W<4||H<4)return null;
+  el.width=W*dpr;el.height=H*dpr;
+  var ctx=el.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  var bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H));
+  bg.addColorStop(0,'#0a0f1e');bg.addColorStop(1,'#06080f');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  return{ctx:ctx,W:W,H:H};
+}
+function grd(ctx,x,y,r,c0,c1){var g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,c0);g.addColorStop(1,c1);return g;}
+function lGrd(ctx,x0,y0,x1,y1,c0,c1){var g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,c0);g.addColorStop(1,c1);return g;}
+
+function renderTop(){
+  var g=setupCV('cvTop');if(!g)return;
+  var ctx=g.ctx,W=g.W,H=g.H;
+  var wspan=C.wspan,dimLen=C.dimLen,rrotor=C.rrotor;
+  var sc=Math.min((W-30)/(wspan*1.3),(H-30)/(dimLen*1.35));
+  var hw=wspan/2*sc,hl=dimLen/2*sc,rr=rrotor*sc;
+  var cx=W/2,cy=H/2+4,ax=hw*0.48,ay=hl*0.48;
+  // grid
+  ctx.strokeStyle='rgba(58,143,255,0.05)';ctx.lineWidth=0.5;
+  for(var x=0;x<W;x+=20){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(var y=0;y<H;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // centerlines
+  ctx.strokeStyle='rgba(58,143,255,0.15)';ctx.lineWidth=0.8;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(cx,8);ctx.lineTo(cx,H-8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(8,cy);ctx.lineTo(W-8,cy);ctx.stroke();
+  ctx.setLineDash([]);
+  // wings
+  ctx.beginPath();ctx.moveTo(cx,cy-hl*.28);ctx.bezierCurveTo(cx-hw*.3,cy-hl*.16,cx-hw*.7,cy-hl*.1,cx-hw,cy-hl*.02);ctx.lineTo(cx-hw,cy+hl*.02);ctx.bezierCurveTo(cx-hw*.65,cy+hl*.12,cx-hw*.3,cy+hl*.2,cx,cy+hl*.28);ctx.closePath();
+  ctx.fillStyle=lGrd(ctx,cx,cy,cx-hw,cy,'#1a3060','#0d1830');ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.6)';ctx.lineWidth=1.2;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy-hl*.28);ctx.bezierCurveTo(cx+hw*.3,cy-hl*.16,cx+hw*.7,cy-hl*.1,cx+hw,cy-hl*.02);ctx.lineTo(cx+hw,cy+hl*.02);ctx.bezierCurveTo(cx+hw*.65,cy+hl*.12,cx+hw*.3,cy+hl*.2,cx,cy+hl*.28);ctx.closePath();
+  ctx.fillStyle=lGrd(ctx,cx,cy,cx+hw,cy,'#1a3060','#0d1830');ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.6)';ctx.lineWidth=1.2;ctx.stroke();
+  // tail
+  ctx.beginPath();ctx.moveTo(cx,cy+hl*.6);ctx.lineTo(cx-hw*.2,cy+hl*.88);ctx.lineTo(cx,cy+hl*.74);ctx.lineTo(cx+hw*.2,cy+hl*.88);ctx.closePath();
+  ctx.fillStyle='#0d1830';ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.5)';ctx.lineWidth=0.8;ctx.stroke();
+  // fuselage
+  ctx.beginPath();ctx.moveTo(cx,cy-hl*.9);ctx.bezierCurveTo(cx+hl*.06,cy-hl*.6,cx+hl*.06,cy+hl*.5,cx,cy+hl*.82);ctx.bezierCurveTo(cx-hl*.06,cy+hl*.5,cx-hl*.06,cy-hl*.6,cx,cy-hl*.9);
+  ctx.fillStyle=lGrd(ctx,cx-hl*.06,cy,cx+hl*.06,cy,'#1e3050','#0a1525');ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.7)';ctx.lineWidth=1.2;ctx.stroke();
+  // arms & rotors
+  var armAngles=[];
+  for(var i=0;i<C.nArms;i++){armAngles.push((i/C.nArms)*Math.PI*2-Math.PI/2);}
+  armAngles.forEach(function(ang,i){
+    var dx=Math.cos(ang)*ax,dy=Math.sin(ang)*ay;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+dx,cy+dy);
+    ctx.strokeStyle=lGrd(ctx,cx,cy,cx+dx,cy+dy,'#2a5a9a','#1a3a6a');ctx.lineWidth=3;ctx.stroke();
+    var rg=grd(ctx,cx+dx,cy+dy,rr,'rgba(58,143,255,0.18)','rgba(58,143,255,0.02)');
+    ctx.beginPath();ctx.arc(cx+dx,cy+dy,rr,0,Math.PI*2);ctx.fillStyle=rg;ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.5)';ctx.lineWidth=1;ctx.stroke();
+    if(C.nPropPerArm===2){ctx.beginPath();ctx.arc(cx+dx,cy+dy,rr*.65,0,Math.PI*2);ctx.strokeStyle='rgba(58,143,255,0.25)';ctx.lineWidth=0.6;ctx.setLineDash([2,2]);ctx.stroke();ctx.setLineDash([]);}
+    [0,90,180,270].forEach(function(a){var rad=a*Math.PI/180,bx=Math.cos(rad)*rr,by=Math.sin(rad)*rr;ctx.beginPath();ctx.moveTo(cx+dx,cy+dy);ctx.lineTo(cx+dx+bx,cy+dy+by);ctx.strokeStyle='rgba(140,200,255,0.7)';ctx.lineWidth=1.5;ctx.lineCap='round';ctx.stroke();ctx.lineCap='butt';});
+    ctx.fillStyle='#ffe040';ctx.font='bold 8px Courier New';ctx.textAlign='center';
+    ctx.fillText(['A','B','C','D','E','F','G','H'][i],cx+dx,cy+dy-rr-4);
+  });
+  // cruise prop
+  ctx.beginPath();ctx.moveTo(cx-rr*.7,cy-hl*.88);ctx.lineTo(cx+rr*.7,cy-hl*.88);ctx.strokeStyle='#ff8040';ctx.lineWidth=2;ctx.stroke();
+  // EO/IR
+  var eg=grd(ctx,cx,cy,8,'rgba(0,224,168,0.35)','rgba(0,224,168,0.03)');
+  ctx.beginPath();ctx.arc(cx,cy,8,0,Math.PI*2);ctx.fillStyle=eg;ctx.fill();ctx.strokeStyle='rgba(0,224,168,0.8)';ctx.lineWidth=1;ctx.stroke();
+  // dim
+  ctx.strokeStyle='rgba(58,143,255,0.2)';ctx.lineWidth=0.6;ctx.setLineDash([3,4]);
+  ctx.beginPath();ctx.moveTo(cx-hw,H-12);ctx.lineTo(cx+hw,H-12);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(58,143,255,0.5)';ctx.font='8px Courier New';ctx.textAlign='center';
+  ctx.fillText('← 전폭 '+wspan.toFixed(2)+'m →',cx,H-4);
+  ctx.fillText('TOP VIEW',cx,11);ctx.textAlign='left';
+}
+
+function renderSide(){
+  var g=setupCV('cvSide');if(!g)return;
+  var ctx=g.ctx,W=g.W,H=g.H;
+  var dimLen=C.dimLen,dimH=C.dimH,rrotor=C.rrotor;
+  var sc=Math.min((W-10)/(dimLen*1.8),(H-14)/(dimH*4));
+  var hl=dimLen/2*sc,hh=dimH/2*sc,rr=rrotor*sc;
+  var cx=W/2,cy=H*.52;
+  // fuselage
+  ctx.beginPath();ctx.moveTo(cx-hl,cy);ctx.bezierCurveTo(cx-hl*.8,cy-hh*.6,cx-hl*.3,cy-hh*.9,cx,cy-hh*.9);ctx.bezierCurveTo(cx+hl*.4,cy-hh*.9,cx+hl*.7,cy-hh*.75,cx+hl,cy-hh*.3);ctx.lineTo(cx+hl,cy+hh*.3);ctx.bezierCurveTo(cx+hl*.7,cy+hh*.6,cx,cy+hh*.65,cx-hl,cy);ctx.closePath();
+  ctx.fillStyle=lGrd(ctx,cx-hl*.07,cy-hh*.9,cx+hl*.07,cy+hh*.65,'#1e3050','#0a1525');ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.7)';ctx.lineWidth=1.2;ctx.stroke();
+  // wing side view
+  ctx.beginPath();ctx.moveTo(cx-hl*.08,cy-hh*.85);ctx.lineTo(cx-hl*.08,cy-hh*1.6);ctx.lineTo(cx+hl*.18,cy-hh*1.48);ctx.lineTo(cx+hl*.18,cy-hh*.72);ctx.closePath();
+  ctx.fillStyle=lGrd(ctx,cx,cy-hh*.85,cx,cy-hh*1.6,'#1a3060','#0d1830');ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.6)';ctx.lineWidth=0.8;ctx.stroke();
+  // vtail
+  ctx.beginPath();ctx.moveTo(cx+hl*.62,cy-hh*.72);ctx.lineTo(cx+hl*.52,cy-hh*1.7);ctx.lineTo(cx+hl*.88,cy-hh*.72);ctx.closePath();
+  ctx.fillStyle='#0d1830';ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.5)';ctx.lineWidth=0.8;ctx.stroke();
+  // htail
+  ctx.beginPath();ctx.moveTo(cx+hl*.62,cy-hh*.5);ctx.lineTo(cx+hl*1.1,cy-hh*.56);ctx.lineTo(cx+hl*1.1,cy-hh*.36);ctx.lineTo(cx+hl*.62,cy-hh*.3);ctx.closePath();
+  ctx.fillStyle='#0d1830';ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.5)';ctx.lineWidth=0.8;ctx.stroke();
+  // arms + rotors (side)
+  [[cx-hl*.18,cy-hh*.8,cx-hl*.48,cy-hh*1.95],[cx+hl*.28,cy-hh*.8,cx+hl*.48,cy-hh*1.95]].forEach(function(pts){
+    ctx.beginPath();ctx.moveTo(pts[0],pts[1]);ctx.lineTo(pts[2],pts[3]);ctx.strokeStyle=lGrd(ctx,pts[0],pts[1],pts[2],pts[3],'#2a5a9a','#1a3a6a');ctx.lineWidth=2.5;ctx.stroke();
+    var rg=grd(ctx,pts[2],pts[3],rr,'rgba(58,143,255,0.2)','rgba(58,143,255,0.02)');
+    ctx.beginPath();ctx.ellipse(pts[2],pts[3],rr,rr*.18,0,0,Math.PI*2);ctx.fillStyle=rg;ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.6)';ctx.lineWidth=0.8;ctx.stroke();
+  });
+  // cruise prop
+  ctx.beginPath();ctx.ellipse(cx-hl,cy,4,rr*.85,0,0,Math.PI*2);ctx.strokeStyle='#ff8040';ctx.lineWidth=1.2;ctx.stroke();
+  // gear
+  ctx.strokeStyle='rgba(42,90,160,0.6)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx-hl*.25,cy+hh*.65);ctx.lineTo(cx-hl*.28,cy+hh*1.15);ctx.moveTo(cx+hl*.25,cy+hh*.65);ctx.lineTo(cx+hl*.28,cy+hh*1.15);ctx.moveTo(cx-hl*.45,cy+hh*1.15);ctx.lineTo(cx-hl*.1,cy+hh*1.15);ctx.moveTo(cx+hl*.1,cy+hh*1.15);ctx.lineTo(cx+hl*.45,cy+hh*1.15);ctx.stroke();
+  ctx.fillStyle='rgba(58,143,255,0.4)';ctx.font='7px Courier New';ctx.textAlign='center';
+  ctx.fillText('SIDE',W/2,10);ctx.fillText(C.dimLen.toFixed(2)+'m',W/2,H-3);ctx.textAlign='left';
+}
+
+function renderFront(){
+  var g=setupCV('cvFront');if(!g)return;
+  var ctx=g.ctx,W=g.W,H=g.H;
+  var wspan=C.wspan,dimH=C.dimH,rrotor=C.rrotor;
+  var sc=Math.min((W-10)/(wspan*1.25),(H-14)/(dimH*4.2));
+  var hw=wspan/2*sc,hh=dimH/2*sc,rr=rrotor*sc;
+  var cx=W/2,cy=H*.46;
+  // wings front
+  ctx.beginPath();ctx.moveTo(cx,cy-hh*.5);ctx.bezierCurveTo(cx-hw*.3,cy-hh*.35,cx-hw*.7,cy-hh*.15,cx-hw,cy-hh*.05);ctx.lineTo(cx-hw,cy+hh*.05);ctx.bezierCurveTo(cx-hw*.65,cy+hh*.2,cx,cy+hh*.4,cx,cy+hh*.4);ctx.closePath();
+  ctx.fillStyle=lGrd(ctx,cx,cy,cx-hw,cy,'#1e3a6a','#0d1830');ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.6)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy-hh*.5);ctx.bezierCurveTo(cx+hw*.3,cy-hh*.35,cx+hw*.7,cy-hh*.15,cx+hw,cy-hh*.05);ctx.lineTo(cx+hw,cy+hh*.05);ctx.bezierCurveTo(cx+hw*.65,cy+hh*.2,cx,cy+hh*.4,cx,cy+hh*.4);ctx.closePath();
+  ctx.fillStyle=lGrd(ctx,cx,cy,cx+hw,cy,'#1e3a6a','#0d1830');ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.6)';ctx.lineWidth=1;ctx.stroke();
+  // fuselage
+  ctx.beginPath();ctx.ellipse(cx,cy,hh*.12,hh*1.05,0,0,Math.PI*2);
+  ctx.fillStyle=lGrd(ctx,cx-hh*.12,cy,cx+hh*.12,cy,'#22385a','#0a1525');ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.7)';ctx.lineWidth=1.2;ctx.stroke();
+  // vtail line
+  ctx.beginPath();ctx.moveTo(cx,cy-hh*1.05);ctx.lineTo(cx,cy-hh*.4);ctx.strokeStyle='rgba(58,143,255,0.7)';ctx.lineWidth=3.5;ctx.lineCap='round';ctx.stroke();ctx.lineCap='butt';
+  // arms front (left + right only for visibility)
+  var armH=hh*1.55,armW=hw*.48;
+  [[-armW,-armH],[armW,-armH]].forEach(function(d){
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+d[0],cy+d[1]);ctx.strokeStyle=lGrd(ctx,cx,cy,cx+d[0],cy+d[1],'#2a5a9a','#1a3a6a');ctx.lineWidth=3;ctx.stroke();
+    var rg=grd(ctx,cx+d[0],cy+d[1],rr,'rgba(58,143,255,0.18)','rgba(58,143,255,0.02)');
+    ctx.beginPath();ctx.ellipse(cx+d[0],cy+d[1],rr,rr*.14,0,0,Math.PI*2);ctx.fillStyle=rg;ctx.fill();ctx.strokeStyle='rgba(58,143,255,0.5)';ctx.lineWidth=0.8;ctx.stroke();
+    if(C.nPropPerArm===2){ctx.beginPath();ctx.ellipse(cx+d[0],cy+d[1]-4,rr,rr*.11,0,0,Math.PI*2);ctx.strokeStyle='rgba(58,143,255,0.25)';ctx.lineWidth=0.6;ctx.setLineDash([2,2]);ctx.stroke();ctx.setLineDash([]);}
+    ctx.beginPath();ctx.moveTo(cx+d[0]-rr,cy+d[1]);ctx.lineTo(cx+d[0]+rr,cy+d[1]);ctx.strokeStyle='rgba(140,200,255,0.7)';ctx.lineWidth=1.5;ctx.lineCap='round';ctx.stroke();ctx.lineCap='butt';
+  });
+  // cruise prop
+  var cg=grd(ctx,cx,cy-hh*1.12,rr*.52,'rgba(255,140,60,0.25)','rgba(255,140,60,0.03)');
+  ctx.beginPath();ctx.arc(cx,cy-hh*1.12,rr*.52,0,Math.PI*2);ctx.fillStyle=cg;ctx.fill();ctx.strokeStyle='rgba(255,140,60,0.6)';ctx.lineWidth=1;ctx.stroke();
+  [0,90,180,270].forEach(function(a){var rad=a*Math.PI/180,px=Math.cos(rad)*rr*.48,py=Math.sin(rad)*rr*.48;ctx.beginPath();ctx.moveTo(cx,cy-hh*1.12);ctx.lineTo(cx+px,cy-hh*1.12+py);ctx.strokeStyle='rgba(255,160,80,0.7)';ctx.lineWidth=1.5;ctx.lineCap='round';ctx.stroke();ctx.lineCap='butt';});
+  // gear
+  ctx.strokeStyle='rgba(42,90,160,0.55)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx-hw*.28,cy+hh*.82);ctx.lineTo(cx-hw*.32,cy+hh*1.5);ctx.moveTo(cx+hw*.28,cy+hh*.82);ctx.lineTo(cx+hw*.32,cy+hh*1.5);ctx.moveTo(cx-hw*.52,cy+hh*1.5);ctx.lineTo(cx-hw*.12,cy+hh*1.5);ctx.moveTo(cx+hw*.12,cy+hh*1.5);ctx.lineTo(cx+hw*.52,cy+hh*1.5);ctx.stroke();
+  // dim
+  ctx.strokeStyle='rgba(58,143,255,0.2)';ctx.lineWidth=0.6;ctx.setLineDash([3,4]);
+  ctx.beginPath();ctx.moveTo(cx-hw,H-12);ctx.lineTo(cx+hw,H-12);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(58,143,255,0.4)';ctx.font='7px Courier New';ctx.textAlign='center';
+  ctx.fillText(wspan.toFixed(2)+'m',cx,H-4);ctx.fillText('FRONT',cx,10);ctx.textAlign='left';
+}
+
+function fitCanvases(){
+  ['cvTop','cvSide','cvFront'].forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var p=el.parentElement,dpr=window.devicePixelRatio||1;
+    var W=p.offsetWidth,H=p.offsetHeight-22;
+    el.style.width=W+'px';el.style.height=H+'px';
+    el.width=W*dpr;el.height=H*dpr;
+  });
+}
+function switchTab(name,btn){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tnav').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('pg-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='view'){setTimeout(function(){fitCanvases();drawViews();},80);}
+}
+window.addEventListener('resize',function(){
+  clearTimeout(window._rt);
+  window._rt=setTimeout(function(){
+    if(document.getElementById('pg-view').classList.contains('active')){fitCanvases();drawViews();}
+    calculate();
+  },120);
+});
+window.addEventListener('load',function(){setTimeout(function(){calculate();},150);});
+</script>
+</body>
+</html>
